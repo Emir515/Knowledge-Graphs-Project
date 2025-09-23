@@ -1,0 +1,106 @@
+// ----------------------------
+// GRAPH CONSTRUCTION SCRIPT
+// For Eurostat Tourism Datasets
+// ----------------------------
+
+This database was created in Neo4j Aura.  
+The datasets (`extot`, `tnage`, `ttsex`) were uploaded from local files.  
+
+First, the common column `geo` was used to connect the three datasets.  
+Indicator nodes were created to link each dataset to the `Geo` nodes.  
+The relationship `HAS_METRIC` was added to connect a `Geo` node to an `Indicator` node.  
+This relationship stores the `year` and `value` for each measurement.  
+
+After importing the data, Cypher queries were used to check the database,  
+add enrichment (extra nodes like Purpose, Duration, Sex, Age Group, etc.),  
+and do some light cleanup.  
+
+// ----------------------------
+// CHECK LABELS, PROPERTY KEYS, AND RELATIONSHIP TYPES
+// ----------------------------
+CALL db.labels();
+CALL db.propertyKeys();
+CALL db.relationshipTypes();
+
+// ----------------------------
+// 1. GEO NODES
+// Countries/regions are already created during import
+// ----------------------------
+MATCH (g:Geo)
+RETURN DISTINCT g.geo AS country
+LIMIT 10;
+
+// ----------------------------
+// 2. INDICATOR NODES
+// Already imported from CSVs with indicator_id as ID
+// ----------------------------
+MATCH (i:Indicator)
+RETURN i.indicator_id, i.purpose, i.duration, i.value
+LIMIT 10;
+
+// ----------------------------
+// ENRICHMENT STEP: PURPOSE
+// ----------------------------
+MATCH (i:Indicator)
+WHERE i.purpose IS NOT NULL
+MERGE (p:Purpose {code: i.purpose})
+MERGE (i)-[:HAS_PURPOSE]->(p);
+
+// ----------------------------
+// ENRICHMENT STEP: DURATION
+// ----------------------------
+MATCH (i:Indicator)
+WHERE i.duration IS NOT NULL
+MERGE (d:Duration {code: i.duration})
+MERGE (i)-[:HAS_DURATION]->(d);
+
+// ----------------------------
+// ENRICHMENT STEP: SEX
+// ----------------------------
+MATCH (i:Indicator)
+WHERE i.sex IS NOT NULL
+MERGE (s:Sex {code: i.sex})
+MERGE (i)-[:HAS_SEX]->(s);
+
+// ----------------------------
+// ENRICHMENT STEP: AGE GROUP
+// ----------------------------
+MATCH (i:Indicator)
+WHERE i.age IS NOT NULL
+MERGE (a:AgeGroup {code: i.age})
+MERGE (i)-[:HAS_AGEGROUP]->(a);
+
+// ----------------------------
+// ENRICHMENT STEP: EXPENDITURE CATEGORY
+// ----------------------------
+MATCH (i:Indicator)
+WHERE i.expend IS NOT NULL
+MERGE (e:Expenditure {code: i.expend})
+MERGE (i)-[:HAS_EXPENDITURE]->(e);
+
+// ----------------------------
+// ENRICHMENT STEP: STAT INFO
+// ----------------------------
+MATCH (i:Indicator)
+WHERE i.statinfo IS NOT NULL
+MERGE (st:StatInfo {code: i.statinfo})
+MERGE (i)-[:HAS_STATINFO]->(st);
+
+// ----------------------------
+// GEO → INDICATOR LINKS
+// These already exist as :HAS_METRIC from import
+// Sanity check:
+// ----------------------------
+MATCH (g:Geo)-[r:HAS_METRIC]->(i:Indicator)
+RETURN g.geo, i.indicator_id, r.year, r.value
+LIMIT 20;
+
+// ----------------------------
+// CLEANUP / CHECKS
+// ----------------------------
+
+// Count nodes
+MATCH (n) RETURN labels(n) AS label, count(*) AS count;
+
+// Count relationships
+MATCH ()-[r]->() RETURN type(r) AS rel_type, count(*) AS count;
