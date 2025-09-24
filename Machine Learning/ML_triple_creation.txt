@@ -1,0 +1,15 @@
+3 - ML
+
+This folder contains queries and data exports for training embedding models.
+
+- Inside TransE/ we have the text file containing queries_for_exporting_TransE_triples.txt
+  having Cypher queries to generate a CSV file of triples:
+  (head, relation, tail)
+
+- Inside GraphSAGE/ and NNConv/ we have the similar query files for
+  creating CSV exports tailored for those models.
+
+Export instructions:
+1. We run the queries in Neo4j Browser.
+2. We should Export results as CSV (three dots → Export → CSV).
+

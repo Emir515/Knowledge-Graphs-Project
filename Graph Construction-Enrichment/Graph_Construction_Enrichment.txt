@@ -1,106 +1,122 @@
-// ----------------------------
-// GRAPH CONSTRUCTION SCRIPT
-// For Eurostat Tourism Datasets
-// ----------------------------
+Knowledge Graph: Travel Data (Neo4j Aura)
 
-This database was created in Neo4j Aura.  
-The datasets (`extot`, `tnage`, `ttsex`) were uploaded from local files.  
+This workflow builds a **knowledge graph** of European travel patterns using **Eurostat tourism datasets**.  
+We focus on **Trips**, their **Destinations**, and traveler attributes (**Age**, **Sex**).  
 
-First, the common column `geo` was used to connect the three datasets.  
-Indicator nodes were created to link each dataset to the `Geo` nodes.  
-The relationship `HAS_METRIC` was added to connect a `Geo` node to an `Indicator` node.  
-This relationship stores the `year` and `value` for each measurement.  
+--------------------------------------------------------------------------------
+Datasets
+--------------------------------------------------------------------------------
+- extot_ready.csv → Trips + Destinations  
+- tnage_ready.csv → Age groups  
+- ttsex_ready.csv → Sex groups  
 
-After importing the data, Cypher queries were used to check the database,  
-add enrichment (extra nodes like Purpose, Duration, Sex, Age Group, etc.),  
-and do some light cleanup.  
+The datasets firstly preprocessed to make it ready for the Neo4J to create the knowledge graph,
+and they were uploaded to a Github repository to make them easy to access by Neo4j Aura, the preprocess 
+steps can be found in the Preprocessing.ipynb file, in this file first we checked the datasets and the 
+columns that we are going to use the graph, the I created the preprocess function in this file to make 
+the process more stable for all the three datasets. And then the datasets were saved in local, commited to the repository
+that you can find below:
 
-// ----------------------------
-// CHECK LABELS, PROPERTY KEYS, AND RELATIONSHIP TYPES
-// ----------------------------
-CALL db.labels();
-CALL db.propertyKeys();
-CALL db.relationshipTypes();
+All datasets are available in the GitHub repository under:
+https://github.com/Emir515/Knowledge-Graphs-Project/tree/main/Datasets/Processed
 
-// ----------------------------
-// 1. GEO NODES
-// Countries/regions are already created during import
-// ----------------------------
-MATCH (g:Geo)
-RETURN DISTINCT g.geo AS country
+--------------------------------------------------------------------------------
+Setup in Neo4j Aura
+--------------------------------------------------------------------------------
+
+### 1. Clear database # this step is optional but it was a must for me because, 
+first i was trying to create it manually.
+MATCH (n) DETACH DELETE n;
+
+### 2. Create Indexes # for this step we created the indexes
+CREATE INDEX trip_id IF NOT EXISTS FOR (t:Trip) ON (t.trip_id);
+CREATE INDEX destination_geo IF NOT EXISTS FOR (d:Destination) ON (d.geo);
+CREATE INDEX age_value IF NOT EXISTS FOR (a:AgeGroup) ON (a.age);
+CREATE INDEX sex_value IF NOT EXISTS FOR (s:Sex) ON (s.sex);
+
+--------------------------------------------------------------------------------
+  Data Import Queries
+--------------------------------------------------------------------------------
+# To import the queries I used the github repository but it needs to be in the raw format, then 
+for each dataset some specific steps were taken, and relations were added.
+
+### Import Trips + Destinations
+LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/Processed/extot_ready.csv" AS row
+WITH row
+WHERE row.trip_id IS NOT NULL
+MERGE (t:Trip {trip_id: row.trip_id})
+SET t.year = CASE WHEN row.year <> "" THEN toInteger(row.year) ELSE null END,
+    t.purpose = row.purpose,
+    t.duration = row.duration,
+    t.value = CASE WHEN row.value <> "" THEN toFloat(row.value) ELSE null END,
+    t.geo = row.geo
+MERGE (d:Destination {geo: row.geo})
+MERGE (t)-[:TO_DESTINATION]->(d);
+
+### Import Age Groups
+LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/Processed/tnage_ready.csv" AS row
+MATCH (t:Trip)
+WHERE t.geo = row.geo
+  AND t.year = toInteger(row.year)
+  AND t.purpose = row.purpose
+  AND t.duration = row.duration
+MERGE (a:AgeGroup {age: row.age})
+MERGE (t)-[:HAS_AGE]->(a);
+
+### Import Sex Groups
+LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/Processed/ttsex_ready.csv" AS row
+MATCH (t:Trip)
+WHERE t.geo = row.geo
+  AND t.year = toInteger(row.year)
+  AND t.purpose = row.purpose
+  AND t.duration = row.duration
+MERGE (s:Sex {sex: row.sex})
+MERGE (t)-[:HAS_SEX]->(s);
+
+--------------------------------------------------------------------------------
+  Validation Queries
+---------------------------------------------------------------------------
+## In these steps, i tried to check whether the datasets were added.
+### Count Nodes
+MATCH (t:Trip) RETURN count(t) AS trips;
+MATCH (d:Destination) RETURN count(d) AS destinations;
+MATCH (a:AgeGroup) RETURN count(a) AS ages;
+MATCH (s:Sex) RETURN count(s) AS sexes;
+
+### Sample Trips
+MATCH (t:Trip)-[:TO_DESTINATION]->(d:Destination)
+RETURN t.year, t.purpose, t.duration, d.geo, t.value
 LIMIT 10;
 
-// ----------------------------
-// 2. INDICATOR NODES
-// Already imported from CSVs with indicator_id as ID
-// ----------------------------
-MATCH (i:Indicator)
-RETURN i.indicator_id, i.purpose, i.duration, i.value
+### Top Destinations for Young Travelers
+MATCH (a:AgeGroup {age:"Y15-24"})<-[:HAS_AGE]-(t:Trip)-[:TO_DESTINATION]->(d:Destination)
+RETURN d.geo, count(t) AS trips
+ORDER BY trips DESC
 LIMIT 10;
 
-// ----------------------------
-// ENRICHMENT STEP: PURPOSE
-// ----------------------------
-MATCH (i:Indicator)
-WHERE i.purpose IS NOT NULL
-MERGE (p:Purpose {code: i.purpose})
-MERGE (i)-[:HAS_PURPOSE]->(p);
+------------------------------------------------------------------------------
+  Graph Schema
+-------------------------------------------------------------------------------
+## here we see the graph struture 
 
-// ----------------------------
-// ENRICHMENT STEP: DURATION
-// ----------------------------
-MATCH (i:Indicator)
-WHERE i.duration IS NOT NULL
-MERGE (d:Duration {code: i.duration})
-MERGE (i)-[:HAS_DURATION]->(d);
+(AgeGroup) <-[:HAS_AGE]- (Trip) -[:TO_DESTINATION]-> (Destination)
+(Sex)      <-[:HAS_SEX]-/
 
-// ----------------------------
-// ENRICHMENT STEP: SEX
-// ----------------------------
-MATCH (i:Indicator)
-WHERE i.sex IS NOT NULL
-MERGE (s:Sex {code: i.sex})
-MERGE (i)-[:HAS_SEX]->(s);
+--------------------------------------------------------------------------------
 
-// ----------------------------
-// ENRICHMENT STEP: AGE GROUP
-// ----------------------------
-MATCH (i:Indicator)
-WHERE i.age IS NOT NULL
-MERGE (a:AgeGroup {code: i.age})
-MERGE (i)-[:HAS_AGEGROUP]->(a);
-
-// ----------------------------
-// ENRICHMENT STEP: EXPENDITURE CATEGORY
-// ----------------------------
-MATCH (i:Indicator)
-WHERE i.expend IS NOT NULL
-MERGE (e:Expenditure {code: i.expend})
-MERGE (i)-[:HAS_EXPENDITURE]->(e);
-
-// ----------------------------
-// ENRICHMENT STEP: STAT INFO
-// ----------------------------
-MATCH (i:Indicator)
-WHERE i.statinfo IS NOT NULL
-MERGE (st:StatInfo {code: i.statinfo})
-MERGE (i)-[:HAS_STATINFO]->(st);
-
-// ----------------------------
-// GEO → INDICATOR LINKS
-// These already exist as :HAS_METRIC from import
-// Sanity check:
-// ----------------------------
-MATCH (g:Geo)-[r:HAS_METRIC]->(i:Indicator)
-RETURN g.geo, i.indicator_id, r.year, r.value
-LIMIT 20;
-
-// ----------------------------
-// CLEANUP / CHECKS
-// ----------------------------
-
-// Count nodes
-MATCH (n) RETURN labels(n) AS label, count(*) AS count;
-
-// Count relationships
-MATCH ()-[r]->() RETURN type(r) AS rel_type, count(*) AS count;
+// Export a combined nodes CSV for GraphSAGE
+MATCH (t:Trip)
+OPTIONAL MATCH (t)-[:HAS_AGE]->(a:AgeGroup)
+OPTIONAL MATCH (t)-[:HAS_SEX]->(s:Sex)
+OPTIONAL MATCH (t)-[:TO_DESTINATION]->(d:Destination)
+RETURN 
+  id(t) AS node_id,
+  t.trip_id AS trip_id,
+  'Trip' AS node_type,
+  t.purpose AS purpose,
+  t.duration AS duration,
+  t.year AS year,
+  t.value AS value,
+  d.geo AS geo,
+  a.age AS age,
+  s.sex AS sex;
