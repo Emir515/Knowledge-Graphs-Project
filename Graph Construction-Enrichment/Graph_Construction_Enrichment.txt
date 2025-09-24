@@ -24,99 +24,180 @@ https://github.com/Emir515/Knowledge-Graphs-Project/tree/main/Datasets/Processed
 Setup in Neo4j Aura
 --------------------------------------------------------------------------------
 
-### 1. Clear database # this step is optional but it was a must for me because, 
-first i was trying to create it manually.
-MATCH (n) DETACH DELETE n;
+----Import Destinations-----
+----------------------------
+CALL {
+  LOAD CSV WITH HEADERS
+  FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/processed/extot_clean.csv"
+  AS row
+  WITH row
+  WHERE row.`geo\time_period` IS NOT NULL AND row.c_dest IS NOT NULL
+  MERGE (d:Destination {geo: row.`geo\time_period`, c_dest: row.c_dest})
+}
+IN TRANSACTIONS OF 1000 ROWS
+RETURN count(*);
 
-### 2. Create Indexes # for this step we created the indexes
-CREATE INDEX trip_id IF NOT EXISTS FOR (t:Trip) ON (t.trip_id);
-CREATE INDEX destination_geo IF NOT EXISTS FOR (d:Destination) ON (d.geo);
-CREATE INDEX age_value IF NOT EXISTS FOR (a:AgeGroup) ON (a.age);
-CREATE INDEX sex_value IF NOT EXISTS FOR (s:Sex) ON (s.sex);
 
---------------------------------------------------------------------------------
-  Data Import Queries
---------------------------------------------------------------------------------
-# To import the queries I used the github repository but it needs to be in the raw format, then 
-for each dataset some specific steps were taken, and relations were added.
+----Import Trips (link to Destinations)-----
+--------------------------------------------
+CALL {
+  LOAD CSV WITH HEADERS
+  FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/processed/extot_clean.csv"
+  AS row
+  WITH row
+  WHERE row.`geo\time_period` IS NOT NULL AND row.year IS NOT NULL
+  MERGE (t:Trip {
+      trip_id: row.`geo\time_period` + "_" + row.year + "_" + row.purpose + "_" + row.duration + "_" + row.freq
+  })
+  SET t.year = toInteger(row.year),
+      t.purpose = row.purpose,
+      t.duration = row.duration,
+      t.freq = row.freq,
+      t.unit = row.unit
+  WITH t, row
+  MATCH (d:Destination {geo: row.`geo\time_period`, c_dest: row.c_dest})
+  MERGE (t)-[:TO_DESTINATION]->(d)
+}
+IN TRANSACTIONS OF 1000 ROWS
+RETURN count(*);
 
-### Import Trips + Destinations
-LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/Processed/extot_ready.csv" AS row
-WITH row
-WHERE row.trip_id IS NOT NULL
-MERGE (t:Trip {trip_id: row.trip_id})
-SET t.year = CASE WHEN row.year <> "" THEN toInteger(row.year) ELSE null END,
-    t.purpose = row.purpose,
-    t.duration = row.duration,
-    t.value = CASE WHEN row.value <> "" THEN toFloat(row.value) ELSE null END,
-    t.geo = row.geo
-MERGE (d:Destination {geo: row.geo})
-MERGE (t)-[:TO_DESTINATION]->(d);
 
-### Import Age Groups
-LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/Processed/tnage_ready.csv" AS row
+----Import Expenditures (link to Trips)----
+CALL {
+  LOAD CSV WITH HEADERS
+  FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/processed/extot_clean.csv"
+  AS row
+  WITH row, trim(row.year) AS cleanYear
+  WHERE row.value IS NOT NULL AND row.value <> ''
+  // Build trip_id with the same "year + space" format
+  WITH row, cleanYear, row.`geo\time_period` + "_" + cleanYear + " _" + row.purpose + "_" + row.duration + "_" + row.freq AS tripKey
+  MATCH (t:Trip {trip_id: tripKey})
+  MERGE (e:Expenditure {expend: row.expend, statinfo: row.statinfo})
+  SET e.value = toFloat(row.value)
+  MERGE (t)-[:HAS_EXPENDITURE]->(e)
+}
+IN TRANSACTIONS OF 1000 ROWS
+RETURN count(*);
+
+
+
+
+-----Import TravellerSex (link to Trips)----
+--------------------------------------------
+CALL {
+  LOAD CSV WITH HEADERS
+  FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/processed/ttsex_clean.csv"
+  AS row
+  WITH row, trim(row.year) AS cleanYear
+  WHERE row.sex IS NOT NULL AND row.value IS NOT NULL AND row.value <> ''
+  WITH row, cleanYear, row.`geo\time_period` + "_" + cleanYear + " _" + row.purpose + "_" + row.duration + "_" + row.freq AS tripKey
+  MERGE (s:TravellerSex {sex: row.sex})
+  WITH s, row, tripKey
+  MATCH (t:Trip {trip_id: tripKey})
+  MERGE (s)-[:TOOK_TRIP {count: toFloat(row.value)}]->(t)
+}
+IN TRANSACTIONS OF 1000 ROWS
+RETURN count(*);
+
+
+
+----Import TravellerAge (link to Trips)-----
+------------------------------------------
+CALL {
+  LOAD CSV WITH HEADERS
+  FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/processed/tnage_clean.csv"
+  AS row
+  WITH row, trim(row.year) AS cleanYear
+  WHERE row.age IS NOT NULL AND row.value IS NOT NULL AND row.value <> ''
+  WITH row, cleanYear, row.`geo\time_period` + "_" + cleanYear + " _" + row.purpose + "_" + row.duration + "_" + row.freq AS tripKey
+  MERGE (a:TravellerAge {age: row.age})
+  WITH a, row, tripKey
+  MATCH (t:Trip {trip_id: tripKey})
+  MERGE (a)-[:TOOK_TRIP {count: toFloat(row.value)}]->(t)
+}
+IN TRANSACTIONS OF 1000 ROWS
+RETURN count(*);
+
+
+
+
+----------
+CALL {
+  LOAD CSV WITH HEADERS
+  FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/processed/extot_clean.csv"
+  AS row
+  WITH row
+  WHERE row.expenditure_value IS NOT NULL AND row.expenditure_value <> ''
+  MATCH (t:Trip {
+      trip_id: row.`geo\time_period` + "_" + row.year + "_" + row.purpose + "_" + row.duration + "_" + row.freq
+  })
+  MERGE (e:Expenditure {expend: row.expend, statinfo: row.statinfo})
+  SET e.value = toFloat(row.expenditure_value)
+  MERGE (t)-[:HAS_EXPENDITURE]->(e)
+}
+IN TRANSACTIONS OF 1000 ROWS
+RETURN count(*);
+
+
+
+
+----Data Verify-------
+// Count nodes by label
+MATCH (n) RETURN labels(n), count(*);
+
+// Count relationships by type
+MATCH ()-[r]->() RETURN type(r), count(*);
+
+// Preview part of the graph
+MATCH (t:Trip)-[r]->(d:Destination)
+RETURN t, r, d LIMIT 10;
+
+
+
+
+----Graph Enrichment----
+UNWIND [
+  {code:'PER', label:'Personal'},
+  {code:'BUS', label:'Business'}
+] AS purpose
+MERGE (p:Purpose {code: purpose.code})
+SET p.label = purpose.label;
+
 MATCH (t:Trip)
-WHERE t.geo = row.geo
-  AND t.year = toInteger(row.year)
-  AND t.purpose = row.purpose
-  AND t.duration = row.duration
-MERGE (a:AgeGroup {age: row.age})
-MERGE (t)-[:HAS_AGE]->(a);
+MERGE (p:Purpose {code: t.purpose})
+MERGE (t)-[:HAS_PURPOSE]->(p);
 
-### Import Sex Groups
-LOAD CSV WITH HEADERS FROM "https://raw.githubusercontent.com/Emir515/Knowledge-Graphs-Project/main/Datasets/Processed/ttsex_ready.csv" AS row
+
+
+------------
+UNWIND [
+  {code:'ACCOM', label:'Accommodation'},
+  {code:'TRANSP', label:'Transport'},
+  {code:'FOOD', label:'Food & Beverage'},
+  {code:'TOTAL', label:'Total'}
+] AS expend
+MERGE (e:ExpenditureCategory {code: expend.code})
+SET e.label = expend.label;
+
+MATCH (exp:Expenditure)
+MERGE (cat:ExpenditureCategory {code: exp.expend})
+MERGE (exp)-[:BELONGS_TO]->(cat);
+
+
+------------
 MATCH (t:Trip)
-WHERE t.geo = row.geo
-  AND t.year = toInteger(row.year)
-  AND t.purpose = row.purpose
-  AND t.duration = row.duration
-MERGE (s:Sex {sex: row.sex})
-MERGE (t)-[:HAS_SEX]->(s);
+MERGE (y:Year {value: t.year})
+MERGE (t)-[:IN_YEAR]->(y);
 
---------------------------------------------------------------------------------
-  Validation Queries
----------------------------------------------------------------------------
-## In these steps, i tried to check whether the datasets were added.
-### Count Nodes
-MATCH (t:Trip) RETURN count(t) AS trips;
-MATCH (d:Destination) RETURN count(d) AS destinations;
-MATCH (a:AgeGroup) RETURN count(a) AS ages;
-MATCH (s:Sex) RETURN count(s) AS sexes;
 
-### Sample Trips
-MATCH (t:Trip)-[:TO_DESTINATION]->(d:Destination)
-RETURN t.year, t.purpose, t.duration, d.geo, t.value
-LIMIT 10;
 
-### Top Destinations for Young Travelers
-MATCH (a:AgeGroup {age:"Y15-24"})<-[:HAS_AGE]-(t:Trip)-[:TO_DESTINATION]->(d:Destination)
-RETURN d.geo, count(t) AS trips
-ORDER BY trips DESC
-LIMIT 10;
 
-------------------------------------------------------------------------------
-  Graph Schema
--------------------------------------------------------------------------------
-## here we see the graph struture 
 
-(AgeGroup) <-[:HAS_AGE]- (Trip) -[:TO_DESTINATION]-> (Destination)
-(Sex)      <-[:HAS_SEX]-/
 
---------------------------------------------------------------------------------
 
-// Export a combined nodes CSV for GraphSAGE
-MATCH (t:Trip)
-OPTIONAL MATCH (t)-[:HAS_AGE]->(a:AgeGroup)
-OPTIONAL MATCH (t)-[:HAS_SEX]->(s:Sex)
-OPTIONAL MATCH (t)-[:TO_DESTINATION]->(d:Destination)
-RETURN 
-  id(t) AS node_id,
-  t.trip_id AS trip_id,
-  'Trip' AS node_type,
-  t.purpose AS purpose,
-  t.duration AS duration,
-  t.year AS year,
-  t.value AS value,
-  d.geo AS geo,
-  a.age AS age,
-  s.sex AS sex;
+
+
+
+
+
+
