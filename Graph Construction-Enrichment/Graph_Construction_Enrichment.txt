@@ -192,7 +192,16 @@ MERGE (t)-[:IN_YEAR]->(y);
 
 
 
-
+-----Query for the Graph Provided as .png-----
+MATCH (t:Trip)-[r1:TO_DESTINATION]->(d:Destination),
+      (t)-[r2:HAS_PURPOSE]->(p:Purpose),
+      (t)-[r3:IN_YEAR]->(y:Year),
+      (t)-[r4:HAS_EXPENDITURE]->(e:Expenditure),
+      (s:TravellerSex)-[r5:TOOK_TRIP]->(t),
+      (a:TravellerAge)-[r6:TOOK_TRIP]->(t)
+RETURN t, d, p, y, e, s, a, r1, r2, r3, r4, r5, r6
+LIMIT 20;
+---------------------------------------------------
 
 
 
