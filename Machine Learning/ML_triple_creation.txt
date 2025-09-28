@@ -1,15 +1,26 @@
-3 - ML
+These are the queries that we created the .csv files in 
+the folder \Machine Learning\data . 
 
-This folder contains queries and data exports for training embedding models.
+Trip → Destination
+MATCH (t:Trip)-[r:TO_DESTINATION]->(d:Destination)
+RETURN id(t) AS head, type(r) AS relation, d.geo AS tail;
 
-- Inside TransE/ we have the text file containing queries_for_exporting_TransE_triples.txt
-  having Cypher queries to generate a CSV file of triples:
-  (head, relation, tail)
+Trip → Purpose
+MATCH (t:Trip)-[r:HAS_PURPOSE]->(p:Purpose)
+RETURN id(t) AS head, type(r) AS relation, p.label AS tail;
 
-- Inside GraphSAGE/ and NNConv/ we have the similar query files for
-  creating CSV exports tailored for those models.
+Trip → Year
+MATCH (t:Trip)-[r:IN_YEAR]->(y:Year)
+RETURN id(t) AS head, type(r) AS relation, y.value AS tail;
 
-Export instructions:
-1. We run the queries in Neo4j Browser.
-2. We should Export results as CSV (three dots → Export → CSV).
+Trip → Expenditure
+MATCH (t:Trip)-[r:HAS_EXPENDITURE]->(e:Expenditure)
+RETURN id(t) AS head, type(r) AS relation, e.expend AS tail;
 
+TravellerSex → Trip
+MATCH (s:TravellerSex)-[r:TOOK_TRIP]->(t:Trip)
+RETURN s.sex AS head, type(r) AS relation, id(t) AS tail;
+
+TravellerAge → Trip
+MATCH (a:TravellerAge)-[r:TOOK_TRIP]->(t:Trip)
+RETURN a.age AS head, type(r) AS relation, id(t) AS tail;
