@@ -1,0 +1,13 @@
+
+Top 10 most similar *countries* to 'AT':
+
+EE     similarity: 0.2519
+NL     similarity: 0.2276
+FR     similarity: 0.1663
+HU     similarity: 0.1232
+SK     similarity: 0.1164
+CH     similarity: 0.1053
+LV     similarity: 0.0884
+EL     similarity: 0.0868
+HR     similarity: 0.0853
+CZ     similarity: 0.0828

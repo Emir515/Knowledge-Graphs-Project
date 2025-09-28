@@ -1,0 +1,68 @@
+//// =====================
+//// Traveller Connections: 
+//// =====================
+
+MATCH (a:TravellerAge)-[:TOOK_TRIP]->(t:Trip)-[:TO_DESTINATION]->(d:Destination)<-[:TO_DESTINATION]-(t2:Trip)<-[:TOOK_TRIP]-(b:TravellerAge)
+WHERE a <> b
+WITH DISTINCT a, b, d
+MERGE (a)-[:TRAVELLED_WITH {destination: d.geo}]-(b);
+
+//// =====================
+//// Traveller Categories
+//// ====================
+
+MATCH (a:TravellerAge)
+WHERE a.age IN ["Y15-24"]
+SET a:YoungTraveller;
+
+MATCH (a:TravellerAge)
+WHERE a.age IN ["Y25-34", "Y35-44"]
+SET a:AdultTraveller;
+
+MATCH (a:TravellerAge)
+WHERE a.age IN ["Y45-54", "Y55-64", "Y_GE65"]
+SET a:SeniorTraveller;
+
+//// ====================
+//// Destination Categories
+//// ==================
+
+MATCH (d:Destination)<-[:TO_DESTINATION]-(t:Trip)-[:IN_YEAR]->(y:Year)
+WITH d, count(DISTINCT y) AS years
+WHERE years >= 2
+SET d:SeasonalDestination;
+
+// DomesticDestination (code = "DOM")
+MATCH (d:Destination)
+WHERE d.c_dest = "DOM"
+SET d:DomesticDestination;
+
+// InternationalDestination (code = "WORLD" or "FOR")
+MATCH (d:Destination)
+WHERE d.c_dest IN ["WORLD", "FOR"]
+SET d:InternationalDestination;
+
+//// ===================
+//// Purpose Labels
+//// ===============
+
+MATCH (p:Purpose)
+WHERE p.label CONTAINS "Business"
+SET p:BusinessPurpose;
+
+
+
+//// ===================
+//// Year / Season
+//// ==================
+
+////RecentTrip (after 2015)
+MATCH (t:Trip)-[:IN_YEAR]->(y:Year)
+WHERE y.value >= 2015
+SET t:RecentTrip;
+
+
+//// OldTrip (before 2015)
+MATCH (t:Trip)-[:IN_YEAR]->(y:Year)
+WHERE y.value < 2015
+SET t:OldTrip;

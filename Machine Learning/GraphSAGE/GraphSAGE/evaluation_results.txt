@@ -1,0 +1,8 @@
+📊 GraphSAGE Link Prediction Evaluation
+AUC: 0.1700
+Average Precision: 0.3437
+Hits@1: 0.0000
+Hits@3: 0.0040
+Hits@5: 0.0080
+Hits@10: 0.0290
+MRR: 0.0236

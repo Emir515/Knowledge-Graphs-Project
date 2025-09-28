@@ -1,0 +1,7 @@
+// Export nodes
+MATCH (n)
+RETURN id(n) as node_id, labels(n) as labels, properties(n) as props
+
+// Export edges
+MATCH (n)-[r]->(m)
+RETURN id(n) as source, id(m) as target, type(r) as relation

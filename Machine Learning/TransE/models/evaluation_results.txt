@@ -1,0 +1,8 @@
+📊 TransE Link Prediction Evaluation
+AUC: 0.5109
+Average Precision: 0.5113
+Hits@1: 0.0010
+Hits@3: 0.0010
+Hits@5: 0.0020
+Hits@10: 0.0020
+MRR: 0.0031

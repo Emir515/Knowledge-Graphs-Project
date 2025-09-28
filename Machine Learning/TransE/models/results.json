@@ -453,7 +453,7 @@
     "stopped": true
   },
   "times": {
-    "evaluation": 4.408749580383301,
-    "training": 106.12997055053711
+    "evaluation": 4.766154050827026,
+    "training": 110.31818222999573
   }
 }

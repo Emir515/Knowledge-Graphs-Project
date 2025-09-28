@@ -1,0 +1,45 @@
+Top 10 most similar nodes to '37_[Destination]_{
+  geo: AT,
+  c_dest: DOM
+}':
+
+95_[Destination]_{
+  geo: AT,
+  c_dest: WORLD
+}    similarity: 0.9992
+66_[Destination]_{
+  geo: AT,
+  c_dest: FOR
+}      similarity: 0.9967
+39_[Destination]_{
+  geo: BG,
+  c_dest: DOM
+}      similarity: 0.7860
+59_[Destination]_{
+  geo: MT,
+  c_dest: DOM
+}      similarity: 0.7704
+94_[Destination]_{
+  geo: SK,
+  c_dest: FOR
+}      similarity: 0.7606
+65_[Destination]_{
+  geo: SK,
+  c_dest: DOM
+}      similarity: 0.7602
+113_[Destination]_{
+  geo: IT,
+  c_dest: WORLD
+}   similarity: 0.7422
+97_[Destination]_{
+  geo: BG,
+  c_dest: WORLD
+}    similarity: 0.7197
+123_[Destination]_{
+  geo: SK,
+  c_dest: WORLD
+}   similarity: 0.7097
+55_[Destination]_{
+  geo: IT,
+  c_dest: DOM
+}      similarity: 0.7081

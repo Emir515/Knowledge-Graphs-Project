@@ -1,0 +1,8 @@
+NNConv Link Prediction Evaluation
+AUC: 0.9817
+Average Precision: 0.9864
+Hits@1: 0.1910
+Hits@3: 0.5050
+Hits@5: 0.6140
+Hits@10: 0.8740
+MRR: 0.4151
